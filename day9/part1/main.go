@@ -3,101 +3,121 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 )
 
+type DISK_TYPE int
+
 const (
-  EMPTY = "."
+	FREESPACE DISK_TYPE = iota
+	FILE
 )
 
 func main() {
-	diskRep := MustGetInput()
-  disk := MustGetDisk(diskRep)
-  firstEmptyIdx := seekToNextEmpty(disk, -1)
-  lastFileByteIdx := seekToPrevFile(disk, len(disk))
-  for ; firstEmptyIdx < lastFileByteIdx; {
-    disk[firstEmptyIdx] = disk[lastFileByteIdx]
-    disk[lastFileByteIdx] = EMPTY
-    firstEmptyIdx = seekToNextEmpty(disk, firstEmptyIdx)
-    lastFileByteIdx = seekToPrevFile(disk, lastFileByteIdx)
-  }
-  fmt.Printf("disk: %v\n", disk)
-  // fmt.Printf("first empty: %d, last file byte idx: %d\n", firstEmptyIdx, lastFileByteIdx)
-  checksum := 0
-  for idx, item := range disk {
-    if item == EMPTY {
-      continue
-    }
-    itemInt, err := strconv.Atoi(item)
-    if err != nil {
-      panic(err)
-    }
-    checksum += (itemInt * idx)
-  }
-  fmt.Printf("checksum -> %d\n", checksum)
+	fmt.Printf(
+		"checksum: %d\n", 
+		ComputeChecksum(MustMoveDisk(MustGetDisk(MustGetDiskInput()))),
+	)
 }
 
-func seekToNextEmpty(disk []string, i int) int {
-  r, n := i + 1, len(disk)
-  for {
-    if r >= n {
-      return -1
-    }
-    if disk[r] == EMPTY {
-      return r
-    }
-    r++
-  }
+func ComputeChecksum(disk []string) int {
+	r := 0
+	for i, ch := range disk {
+		if ch == "." {
+			continue
+		}
+		fileId, err := strconv.Atoi(ch)
+		if err != nil {
+			panic(err)
+		}
+		r += (fileId * i)
+	}
+	return r
 }
 
-func seekToPrevFile(disk []string, i int) int {
-  r := i - 1
-  for {
-    if r < 0 {
-      return -1
-    }
-    if disk[r] != EMPTY {
-      return r
-    }
-    r--
-  }
+func MustMoveDisk(disk []string) []string {
+	r := slices.Clone(disk)
+	freeIdx := SeekAhead(disk, FREESPACE, 0)
+	fileIdx := SeekBack(disk, FILE, len(disk))
+	for ; freeIdx < fileIdx ; {
+		r[freeIdx] = r[fileIdx]
+		r[fileIdx] = "."
+		// Now we move the pointers forward and back.
+		if freeIdx = SeekAhead(disk, FREESPACE, freeIdx); freeIdx == -1 {
+			panic("free idx was -1")
+		}
+		if fileIdx = SeekBack(disk, FILE, fileIdx); fileIdx == -1 {
+			panic("file idx was -1")
+		}
+	}
+	return r
 }
 
-// Given the compressed representation of the disk, returns the actual disk.
-func MustGetDisk(diskRep []string) []string {
-  r := []string{}
-  currFileId := 0
-  for idx, ch := range diskRep {
-    if ch == "\n" {
-      break
-    }
-    if idx % 2 == 0 {
-      occBlocks, err := strconv.Atoi(ch)
-      if err != nil {
-        panic(fmt.Errorf("failed to get occupied blocks: %w", err))
-      }
-      strCurrFileId := strconv.Itoa(currFileId)
-      for range occBlocks {
-        r = append(r, strCurrFileId)
-      }
-      currFileId++
-    } else {
-      // Free space.
-      freeBlocks, err := strconv.Atoi(ch)
-      if err != nil {
-        panic(fmt.Errorf("failed to get free blocks: %w", err))
-      }
-      r = append(r,strings.Split(strings.Repeat(EMPTY, freeBlocks), "")...)
-    }
-  }
-  return r
+// SeekAhead looks in (fromIdx, end]
+func SeekAhead(disk []string, lookFor DISK_TYPE, fromIdx int) int {
+	for i := fromIdx + 1; i < len(disk); i++ {
+		if lookFor == FREESPACE && disk[i] == "." {
+			return i
+		}
+		if lookFor == FILE && disk[i] != "." {
+			return i
+		}
+	}
+	return -1
 }
 
-func MustGetInput() []string {
-	contents, err := os.ReadFile("input.txt")
+// SeekBack looks back in (fromIdx ... start]
+func SeekBack(disk []string, lookFor DISK_TYPE, fromIdx int) int {
+	for i := fromIdx - 1; i >= 0; i-- {
+		if lookFor == FREESPACE && disk[i] == "." {
+			return i
+		}
+		if lookFor == FILE && disk[i] != "." {
+			return i
+		}
+	}
+	return -1
+}
+
+func MustGetDisk(inp string) []string {
+	r := []string{}
+	input := strings.Split(inp, "")
+	fileId := 0
+	for i, ch := range input {
+		if ch == "\n" {
+			continue
+		}
+		if i % 2 == 0 {
+			// This is a file.
+			fileLen, err := strconv.Atoi(ch)
+			if err != nil {
+				panic(err)
+			}
+			fileIdStr := strconv.Itoa(fileId)
+			for range fileLen {
+				r = append(r, fileIdStr)
+			}
+			fileId++
+		} else {
+			// This is amount of free space.
+			freeSpaceLen, err := strconv.Atoi(ch)
+			if err != nil {
+				panic(err)
+			}
+			for range freeSpaceLen {
+				r = append(r, ".")
+			}
+		}
+	}
+	return r
+}
+
+func MustGetDiskInput() string {
+	content, err := os.ReadFile("input.txt")
 	if err != nil {
 		panic(err)
 	}
-  return strings.Split(string(contents), "")
+	return string(content)
 }
