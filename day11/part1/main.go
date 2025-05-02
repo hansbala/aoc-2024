@@ -17,23 +17,22 @@ func main() {
 	stones := MustGetInput()
 	// fmt.Printf("%v\n", stones)
 	c := NewCache()
-	fmt.Printf("ans: %d\n", RecBlink(stones, cCompLimit, c))
+	fmt.Printf("ans: %d\n", RecBlink(stones, cProblemLimit, c))
 }
 
 func RecBlink(stones []int, blinkNum int, cash *Cache) int {
-	// if v, ok := cash.Get(stones); ok {
-	// 	fmt.Printf("yurrr: %v -> %d\n", stones, v)
-	// 	return v
-	// }
 	if blinkNum == 0 {
-		cash.Set(stones, len(stones))
 		return len(stones)
+	}
+	if v, ok := cash.Get(stones, blinkNum); ok {
+		return v
 	}
 	acc := 0
 	newStones := Blink(stones)
 	for _, stone := range newStones {
 		acc += RecBlink([]int{stone}, blinkNum-1, cash)
 	}
+	cash.Set(stones, blinkNum, acc)
 	return acc
 }
 
@@ -77,19 +76,19 @@ type Cache struct {
 	cache map[SliceHash]int
 }
 
-func (c *Cache) Set(s []int, v int) {
-	c.cache[c.sliceHash(s)] = v
+func (c *Cache) Set(s []int, blinks int, v int) {
+	c.cache[c.getHash(s, blinks)] = v
 }
 
-func (c *Cache) Get(s []int) (int, bool) {
-	v, ok := c.cache[c.sliceHash(s)]
+func (c *Cache) Get(s []int, blinks int) (int, bool) {
+	v, ok := c.cache[c.getHash(s, blinks)]
 	return v, ok
 }
 
-func (c *Cache) sliceHash(s []int) SliceHash {
+func (c *Cache) getHash(s []int, blinks int) SliceHash {
 	cloned := slices.Clone(s)
 	slices.Sort(cloned)
-	r := SliceHash(fmt.Sprintf("%v", cloned))
+	r := SliceHash(fmt.Sprintf("%v, %d", cloned, blinks))
 	// fmt.Println(r)
 	return r
 }
