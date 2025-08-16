@@ -24,10 +24,10 @@ func main() {
 	r := 0
 	for _, regions := range garden.regionsMap {
 		for _, region := range regions {
-			perimeter := region.Perimeter(input)
-			area := region.Area()
-			total := perimeter * area
-			fmt.Printf("region %s has a cost of %d (area: %d, perimeter: %d)\n", region.plantType, total, area, perimeter)
+			// perimeter := region.Perimeter(input)
+			// area := region.Area()
+			// total := perimeter * area
+			// fmt.Printf("region %s has a cost of %d (area: %d, perimeter: %d)\n", region.plantType, total, area, perimeter)
 			r += region.Perimeter(input) * region.Area()
 		}
 	}
@@ -62,7 +62,10 @@ type Region struct {
 	innerRegions []*Region // Regions that are enclosed inside this one.
 }
 
-func (r *Region) Perimeter(input [][]string) int {
+func (r *Region) Perimeter(input [][]string, useSides bool) int {
+	if useSides {
+		return 0
+	}
 	perimeter := 0
 	for _, cord := range r.cords.All() {
 		neighbors := GetAllNeighbors(cord, input)
